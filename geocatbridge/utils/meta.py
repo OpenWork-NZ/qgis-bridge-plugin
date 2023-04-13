@@ -1,31 +1,92 @@
 import configparser
 from pathlib import Path
-from typing import Tuple
 from re import compile
 
 #: GeoCat Bridge plugin namespace
 PLUGIN_NAMESPACE = "geocatbridge"
 
+#: Plugin metadata file path
+PLUGIN_METAPATH = (Path(__file__).parent.parent / "metadata.txt").resolve()
+
+#: Sections in metadata.txt file
+SECTION_DEFAULT = "general"
+SECTION_BRIDGE = "bridge"
+
 #: Semantic version regex
-VERSION_REGEX = compile(r'^(\d+)\.(\d+).*')
+VERSION_REGEX = compile(r'^(\d+)\.?(\d+)?\.?(\d+)?')
 
 _prop_cache = {}
 _meta_parser = configparser.ConfigParser()
 
 
+class SemanticVersion:
+    def __init__(self, version):
+        self._major, self._minor, self._patch = self._parse(version)
+        self._comp = f"{self._major:0>6}.{self._minor:0>6}.{self._patch:0>6}"
+        self._valid = not (self.major == self.minor == self.patch == 0)
+        self._actual = str(version).strip()
+
+    @staticmethod
+    def _parse(version: str):
+        """ Converts a version string to a (major, minor, patch) version tuple. """
+        if isinstance(version, SemanticVersion):
+            yield from (version._major, version._minor, version._patch)  # noqa
+            return
+        m = VERSION_REGEX.match(str(version).strip() or '0')  # Interpret empty strings as version 0.0.0
+        if m is None or len(m.groups()) != 3:
+            raise ValueError(f"'{version}' is not a valid semantic version")
+        for g in m.groups():
+            yield int(g or 0)
+
+    @property
+    def major(self) -> int:
+        """ The major version number (first number). """
+        return self._major
+
+    @property
+    def minor(self) -> int:
+        """ The minor version number (second number). """
+        return self._minor
+
+    @property
+    def patch(self) -> int:
+        """ The patch version number (third number). Defaults to 0 if not set. """
+        return self._patch
+
+    @property
+    def is_official(self) -> bool:
+        """ Returns True if the version number only contains valid digits (e.g. not a beta or RC). """
+        return self and self._actual and self._actual[-1].isdigit()
+
+    def __bool__(self):
+        return self._valid
+
+    def __str__(self):
+        """ Returns the actual version number as it was passed in. """
+        return self._actual
+
+    def __eq__(self, other):
+        """ Numeric equality comparison of 2 semantic versions. """
+        return self._comp == SemanticVersion(other)._comp
+
+    def __gt__(self, other):
+        return self._comp > SemanticVersion(other)._comp
+
+    def __lt__(self, other):
+        return self._comp < SemanticVersion(other)._comp
+
+    def __ge__(self, other):
+        return self._comp >= SemanticVersion(other)._comp
+
+    def __le__(self, other):
+        return self._comp <= SemanticVersion(other)._comp
+
+
 def _load():
-    _meta_parser.read(str(Path(__file__).parent.parent / 'metadata.txt'))
+    _meta_parser.read(str(PLUGIN_METAPATH))
 
 
-def semanticVersion(version: str) -> Tuple[int, int]:
-    """ Converts a version string to a (major, minor) version tuple. """
-    m = VERSION_REGEX.match(version)
-    if not m or len(m.groups()) != 2:
-        return 0, 0
-    return tuple(int(v) for v in m.groups())  # noqa
-
-
-def getProperty(name, section='general'):
+def getProperty(name, section=SECTION_DEFAULT):
     """ Reads the property with the given name from the **local** plugin metadata. """
     key = f'{section}.{name}'
     try:
@@ -44,7 +105,7 @@ def getAppName() -> str:
 def getLongAppName() -> str:
     """ Returns the full name of the QGIS Bridge plugin.
     Depending on the settings, this may return the same as calling getAppName(). """
-    long_name = getProperty("longName", "bridge")
+    long_name = getProperty("longName", SECTION_BRIDGE)
     if long_name:
         return long_name
     return getAppName()
@@ -53,25 +114,52 @@ def getLongAppName() -> str:
 def getShortAppName() -> str:
     """ Returns the short name of the QGIS Bridge plugin.
     Depending on the settings, this may return the same as calling getAppName(). """
-    short_name = getProperty("shortName", "bridge")
+    short_name = getProperty("shortName", SECTION_BRIDGE)
     if short_name:
         return short_name
     return getAppName()
 
 
 def getTrackerUrl() -> str:
-    """ Returns the issue tracker URL for GeoCat Bridge. """
+    """ Returns the issue tracker URL for GeoCat Bridge (i.e. GitHub). """
     return getProperty("tracker")
 
 
-def getVersion() -> str:
+def getRepoUrl() -> str:
+    """ Returns the Git repository URL for GeoCat Bridge (i.e. GitHub). """
+    return getProperty("repository")
+
+
+def getHomeUrl() -> str:
+    """ Returns the homepage URL for GeoCat Bridge. """
+    return getProperty("homepage")
+
+
+def getVersion() -> SemanticVersion:
     """ Returns the GeoCat Bridge version string. """
-    return getProperty("version").strip()
+    return SemanticVersion(getProperty("version"))
+
+
+def getSupportUrl() -> str:
+    """ Returns the support ticket URL for GeoCat Bridge. """
+    return getProperty("support", SECTION_BRIDGE)
 
 
 def getDocsUrl() -> str:
-    """ Returns the GeoCat Bridge documentation URL. """
-    return getProperty("docs", "bridge").rstrip('/')
+    """ Returns the GeoCat Bridge documentation URL for the current (major.minor) release. """
+    doc_url = getProperty('docs', SECTION_BRIDGE)
+    if not doc_url:
+        raise ValueError("Bridge documentation URL has not been set")
+    return f"{doc_url.rstrip('/')}/v{getVersion()}/"
+
+
+def isEnterprise() -> bool:
+    """ Returns True if this is the GeoCat Bridge Enterprise edition. """
+    try:
+        from geocatbridge.utils import license  # noqa
+    except ImportError:
+        return False
+    return True
 
 
 _load()

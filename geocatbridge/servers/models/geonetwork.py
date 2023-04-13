@@ -4,8 +4,10 @@ from urllib.parse import urlparse
 from xml.etree import ElementTree as ETree
 
 import requests
+
 from geocatbridge.utils.layers import BridgeLayer
 from qgis.core import (
+    QgsProcessingFeedback,
     QgsProcessingParameterMapLayer,
     QgsProcessingParameterString,
     QgsProcessingParameterAuthConfig
@@ -17,7 +19,7 @@ from geocatbridge.servers.bases import MetaCatalogServerBase
 from geocatbridge.servers.models.gn_profile import GeoNetworkProfiles
 from geocatbridge.servers.views.geonetwork import GeoNetworkWidget
 from geocatbridge.utils.network import BridgeSession
-from geocatbridge.utils.meta import semanticVersion
+from geocatbridge.utils.meta import SemanticVersion
 from geocatbridge.utils import feedback
 from geocatbridge.utils.network import TESTCON_TIMEOUT
 
@@ -86,14 +88,13 @@ class GeonetworkServer(MetaCatalogServerBase):
         msg = f'Could not connect to {self.serverName}'
 
         # First get GeoNetwork version
-        version = self.getVersion() or ''
+        version = SemanticVersion(self.getVersion() or '')
         if version:
-            major, minor = semanticVersion(version)
-            if not (major == 3 and minor >= 4):
-                if major == 4:
-                    errors.add(f'{msg}: {self.getLabel()} version 4 instances are not supported yet')
-                else:
-                    errors.add(f'{msg}: {self.getLabel()} instances prior to version 3.4 are not supported')
+            if version >= 4:
+                errors.add(f'{msg}: {self.getLabel()} version 4 instances are not supported yet')
+                return False
+            elif version < 3.4:
+                errors.add(f'{msg}: {self.getLabel()} instances prior to version 3.4 are not supported')
                 return False
         else:
             errors.add(f'{msg}: please check URL')
@@ -192,13 +193,18 @@ class GeonetworkServer(MetaCatalogServerBase):
 
         :returns:   The current GeoNetwork version string or an empty string if not found.
         """
-        url = f"{self.apiUrl}/site/info/build"
+        url = f"{self.apiUrl}/site"
         headers = {"Accept": "application/json"}
         try:
-            result = self.request(url, headers=headers, timeout=TESTCON_TIMEOUT)
-            return result.json().get('version')
+            result = self.request(url, headers=headers, timeout=TESTCON_TIMEOUT).json() or {}
+            version = result.get("system/platform/version")
+            sub_version = result.get("system/platform/subVersion")
+            if sub_version.lower() == "snapshot":
+                self.logWarning(f"{self.getLabel()} node at {self.baseUrl} does not run a stable version. "
+                                f"This may lead to unexpected results.")
+            return version
         except Exception as err:
-            self.logError(f"Failed to retrieve {self.getLabel()} version for '{self.serverName}': {err}")
+            self.logError(f"Failed to retrieve version of {self.getLabel()} node at {self.baseUrl}: {err}")
             return ''
 
     def metadataUrl(self, uuid):
@@ -243,17 +249,17 @@ class GeonetworkAlgorithm(BridgeAlgorithm):
     def shortDescription(self):
         return self.tr('Publishes metadata to a GeoNetwork server instance')
 
-    def processAlgorithm(self, parameters, context, feedback):
+    def processAlgorithm(self, parameters, context, feedback_: QgsProcessingFeedback):
         url = self.parameterAsString(parameters, self.URL, context)
         authid = self.parameterAsString(parameters, self.AUTHID, context)
         layer = BridgeLayer(self.parameterAsLayer(parameters, self.INPUT, context))
 
-        feedback.pushInfo(f'Publishing {layer.name()} metadata to GeoNetwork...')
+        feedback_.pushInfo(f'Publishing {layer.name()} metadata to GeoNetwork...')
         try:
             server = GeonetworkServer(GeonetworkServer.__name__, authid, url)
             server.publishLayerMetadata(layer)
         except Exception as err:
-            feedback.reportError(err, True)
+            feedback_.reportError(str(err), True)
 
         return {self.OUTPUT: True}
 

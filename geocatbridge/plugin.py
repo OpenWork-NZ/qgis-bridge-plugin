@@ -67,8 +67,7 @@ class GeocatBridge:
     @staticmethod
     def openDocUrl():
         """ Opens the web-based documentation in a new tab of the default browser. """
-        full_url = f"{meta.getDocsUrl()}/v{meta.getVersion()}/"
-        webbrowser.open_new_tab(full_url)
+        webbrowser.open_new_tab(meta.getDocsUrl())
 
     def initProcessing(self):
         """ Initializes and adds a processing provider. """
@@ -99,7 +98,7 @@ class GeocatBridge:
 
         # Help menu item
         self.action_help = QAction(QgsApplication.getThemeIcon('/mActionHelpContents.svg'),
-                                   "Plugin Help...", self._win)
+                                   "Online Documentation...", self._win)
         self.action_help.setObjectName(f"{self.name} Help")
         self.action_help.triggered.connect(self.openDocUrl)
         self.iface.addPluginToWebMenu(self.name, self.action_help)
@@ -126,7 +125,7 @@ class GeocatBridge:
         # Remove StyleViewer button and close StyleViewer
         self.action_styleviewer.triggered.disconnect(self.widget_styleviewer.show)
         self.iface.removePluginWebMenu(self.name, self.action_styleviewer)
-        self.closeDialog(self.widget_styleviewer)
+        self.closeDialog(self.widget_styleviewer)  # noqa
         self.action_styleviewer = None
 
         # Remove Publish button and close Publish dialog

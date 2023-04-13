@@ -5,28 +5,60 @@ description=Easy publication of data and metadata from QGIS.
 about=GeoCat is pleased to offer its Bridge plugin to the QGIS community.
 
       GeoCat Bridge offers a one-click publishing experience for QGIS Desktop. Create great looking maps and publish them to GeoServer or MapServer, or share its metadata via the GeoNetwork metadata catalog.
-      Your data is uploaded as a GeoPackage, Shapefile, or imported into a PostGIS database. GeoCat Bridge brings our celebrated symbology output to QGIS Desktop, so you can share your cartography online.
+      Your data is uploaded as a GeoPackage, Shapefile, or imported into a PostGIS database. Bridge will automatically convert your QGIS styles into the destination format (SLD, Mapfile, etc.).
 
-      <i>Note: "Bridge for QGIS" versioning starts at v4.0. There are no official releases prior to v4.x.</i>
+      <b>Notes</b>
+      - If you wish to publish metadata, be aware that more recent QGIS versions (3.22+) require you to install the 'lxml' python package.
+      - <i>Bridge for QGIS</i> versioning starts at v4.0. There are no official releases prior to v4.x.
 
 experimental=False
 category=Web
 qgisMinimumVersion=3.16
-version=4.2.3
+version=4.3.2
 email=support@geocat.net
 icon=icons/geocat.png
 tags=style, symbology, cartography, publishing, sharing, SDI, metadata, MapServer,
      GeoNetwork, GeoServer, Mapbox, GeoStyler, ISO19139, SLD, GeoPackage, PostGIS
 homepage=https://www.geocat.net/bridge
-tracker=https://my.geocat.net/submitticket.php?step=2&deptid=4
-repository=https://github.com/geocat/qgis-bridge-plugin
+tracker=https://github.com/GeoCat/qgis-bridge-plugin/issues
+repository=https://github.com/GeoCat/qgis-bridge-plugin
 hasProcessingProvider=yes
 deprecated=False
-changelog=Version 4.2.2-3, March 2022
+changelog=Version 4.3.2, February 2023
+          - Fixed GeoNetwork version retrieval for 3.12.8 and up
+          - bridgestyle: support IS NULL rule filters (SLD and MapBox only)
+
+          Version 4.3.1, November 2022
+          - Fixed About page crash for specific Jinja versions (Path objects not supported)
+          - Updated bridgestyle with some MapBox GL JS fixes
+
+          Version 4.3, August 2022
+          - Enhanced GeoServer Importer support related to GEOS-10553 (see PR #151)
+          - Warn when lxml dependency is missing for QGIS 3.22+ users (prevent crash when plugin loads)
+          - Updated About dialog with useful links
+          - Updated documentation and added quickstart tutorial
+          - Bug fix: persist server configurations imported from JSON file
+          - Bug fix: clicking Save without a current server should not throw
+
+          Version 4.2.9-10, July 2022
+          - Handle JSONDecodeError from GeoServer regardless of json lib
+          - Fixed missing title argument when showing QGIS error message bar
+          - Updated GeoCat logo and icon
+
+          Version 4.2.7-8, April-May 2022
+          - Fixed broken URL for documentation link
+          - Fixed PostGIS direct access publication [#833147]
+          - Fix layer name (remove suffix) after GeoServer Importer job finishes [#569030]
+          - Remove global defaultStyles created by GeoServer Importer
+          - Prevent JSONDecodeError on bad GeoServer version response
+
+          Version 4.2.2-6, March 2022
           - Fixed 'New Server' button for macOS users [#146]
           - Fixed error fetching GeoServer workspaces without credentials [#169851]
-          - Properly set GeoServer layer title, abstract, and keywords
+          - Set title, abstract, and keywords in GeoServer layers and styles [GEOCAT-BRIDGE-T-2589]
           - Do not create GeoServer layergroup if QGIS group only contains one layer
+          - Set exported GeoPackage layer name so GeoServer uses correct feature type name
+          - Fixed issue related to layer filters [#926926]
 
           Version 4.2.0-1, February 2022
           - Fixed GeoServer layer group publication [#135]
@@ -53,4 +85,6 @@ changelog=Version 4.2.2-3, March 2022
 
 [bridge]
 shortName=Bridge
-docs=https://geocat.github.io/qgis-bridge-plugin/v4.2
+longName=GeoCat Bridge for QGIS
+support=https://my.geocat.net/submitticket.php?step=2&deptid=4
+docs=https://geocat.github.io/qgis-bridge-plugin
